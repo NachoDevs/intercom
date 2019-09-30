@@ -23,19 +23,21 @@ class issue41(intercom.Intercom):
         receiving_sock.bind(listening_endpoint)
 
         def receive_and_buffer():
-            recieved_data = receiving_sock.recvfrom(
+            recieved_data, source_address = receiving_sock.recvfrom(
                 intercom.Intercom.max_packet_size)
 
-            # The first digit we recieve is the index of the packet
-            source_address = recieved_data[0]
-            # The rest is the corresponding data
-            message = numpy.delete(recieved_data, 0)
+            interpreted_data = numpy.frombuffer(recieved_data, numpy.int16)
 
-            self.packet_buffer[source_address] = message
+            # The first digit we recieve is the index of the packet
+            chunk_number = interpreted_data[0]
+            # The rest is the corresponding data
+            chunk = numpy.delete(interpreted_data, 0)
+
+            self.packet_buffer[chunk_number] = chunk
 
 
         def record_send_and_play(indata, outdata, frames, time, status):
-            # We add the data to be sent the index of this packet
+            # We add the data to be send the index of this packet
             data_to_send = numpy.insert(
                 numpy.frombuffer(
                     indata,
@@ -43,26 +45,25 @@ class issue41(intercom.Intercom):
                 0,
                 self.packets_sent_counter)
             
-            # We increment the sended packet counter
+            # We increment the sent packet counter
             self.packets_sent_counter+=1
+
+            # print(data_to_send)
             
             # We send the data    
             sending_sock.sendto(
                 data_to_send,
                 (self.destination_IP_addr, self.destination_port))
-            try:
-                # We take the message corresponding with the next packet sent
-                message = self.packet_buffer[self.packets_recieved_counter % self.buffer_size]
-            except queue.Empty:
-                message = numpy.zeros(
-                    (self.samples_per_chunk, self.bytes_per_sample),
-                    self.dtype)
+                
+            # We take the message corresponding with the next packet sent
+            message = self.packet_buffer[self.packets_recieved_counter % self.buffer_size]
+            
             # We increment the ammount of packets recieved to keep track of the order
             self.packets_recieved_counter += 1
-            outdata[:] = numpy.frombuffer(
-                message,
-                numpy.int16).reshape(
-                    self.samples_per_chunk, self.number_of_channels)
+            # print(message)
+            outdata[:] = numpy.reshape(
+                    message,
+                    (self.samples_per_chunk, self.number_of_channels))
             if __debug__:
                 sys.stderr.write("."); sys.stderr.flush()
 
@@ -75,3 +76,10 @@ class issue41(intercom.Intercom):
             print('-=- Press <CTRL> + <C> to quit -=-')
             while True:
                 receive_and_buffer()
+
+if __name__ == "__main__":
+
+    issue = issue41()
+    args = issue.parse_args()
+    issue.init(args)
+    issue.run()

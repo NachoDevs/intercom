@@ -1,3 +1,5 @@
+# python .\issue41.py -p 4443 -i 4445
+
 import sounddevice as sd
 import numpy
 import socket
@@ -25,8 +27,8 @@ class issue41(intercom.Intercom):
         receiving_sock.bind(listening_endpoint)
 
         # We set the buffer to zeros
-        for i in range(self.buffer_size):
-            self.packet_buffer[i] = numpy.zeros(buffer_size)
+        for i in range(self.buffer_size - 1):
+            self.packet_buffer[i] = numpy.zeros(self.buffer_size)
 
         def receive_and_buffer():
             recieved_data, source_address = receiving_sock.recvfrom(
@@ -68,11 +70,12 @@ class issue41(intercom.Intercom):
                 #   we need to start playing to prevent loosing new information from the next packages
                 if max(self.received_packets) - min(self.received_packets) > self.buffer_size / 2:
                     self.packet_number_to_play = min(self.received_packets)
+                packet_to_send = numpy.zeros((self.samples_per_chunk, self.bytes_per_sample), self.dtype)
             else:
                 # We take the message corresponding with the next packet sent
                 packet_to_send = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
                 # Now we reset this position since it has been send to be played
-                self.packet_buffer[self.packet_number_to_play % self.buffer_size] = numpy.zeros(self.buffer_size)
+                self.packet_buffer[self.packet_number_to_play % self.buffer_size] = numpy.zeros(packet_to_send.size)
                 
                 self.packet_number_to_play += 1
             

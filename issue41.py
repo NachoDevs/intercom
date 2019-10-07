@@ -5,6 +5,7 @@ import numpy
 import socket
 import queue
 import intercom
+import struct
 
 if __debug__:
     import sys
@@ -15,9 +16,11 @@ class issue41(intercom.Intercom):
     packets_sent_counter = 0                        # To keep track of the amount of packets sent (for order purposes)
     packets_recieved_counter = 0                    # To keep track of the amount of packets recieved (for order purposes)
     buffer_size = 4                                 # Size of the buffer that will store the data
-    packet_buffer = list(range(1, buffer_size))     # Here we will store the data recieved ordered by index
-    received_packets = list(range(1, buffer_size))  # Structure to store the recieved packets
+    packet_buffer = list(range(0, buffer_size))     # Here we will store the data recieved ordered by index
+    received_packets = list(range(0, buffer_size))  # Structure to store the recieved packets
     packet_number_to_play = -1                      # To keep track of the current packet to play
+
+    struct_format = "!H{}h"
 
     # Overriding the run method
     def run(self):
@@ -26,42 +29,43 @@ class issue41(intercom.Intercom):
         listening_endpoint = ("0.0.0.0", self.listening_port)
         receiving_sock.bind(listening_endpoint)
 
+        # We set the struct amount of integers
+        self.struct_format = self.struct_format.format(self.samples_per_chunk * self.bytes_per_sample)
+
         # We set the buffer to zeros
-        for i in range(self.buffer_size - 1):
+        for i in range(self.buffer_size):
             self.packet_buffer[i] = numpy.zeros(self.buffer_size)
 
         def receive_and_buffer():
             recieved_data, source_address = receiving_sock.recvfrom(
-                intercom.Intercom.max_packet_size)
+                self.max_packet_size)
+
+            # We obtain the struct sent in the packet 
+            #   The first digit we recieve is the index of the packet
+            #   The rest is the corresponding data
+            chunk_number, *chunk = struct.unpack(self.struct_format, recieved_data)
 
             # We interpret the binary data from the buffer as integers
-            interpreted_data = numpy.frombuffer(recieved_data, numpy.int16)
+            interpreted_chunk = numpy.frombuffer(chunk, numpy.int16)
 
-            # The first digit we recieve is the index of the packet
-            chunk_number = interpreted_data[0]
-            # The rest is the corresponding data
-            chunk = numpy.delete(interpreted_data, 0)
-
-            self.packet_buffer[chunk_number] = chunk
+            print(interpreted_chunk)
+            self.packet_buffer[chunk_number % self.buffer_size] = interpreted_chunk
             self.received_packets.append(chunk_number)
 
         def record_send_and_play(indata, outdata, frames, time, status):
             # We add the data to be send the index of this packet
-            data_to_send = numpy.insert(
-                numpy.frombuffer(
+            recieved_data = numpy.frombuffer(
                     indata,
-                    numpy.int16),
-                0,
-                self.packets_sent_counter)
-            
+                    numpy.int16)
+
+            packet_to_send = struct.pack(self.struct_format, self.packets_sent_counter, *recieved_data)
+
             # We increment the sent packet counter
             self.packets_sent_counter+=1
 
-            # print(data_to_send)
-            
             # We send the data    
             sending_sock.sendto(
-                data_to_send,
+                packet_to_send,
                 (self.destination_IP_addr, self.destination_port))
 
             # If we haven't started playing
@@ -82,9 +86,13 @@ class issue41(intercom.Intercom):
             # We increment the ammount of packets recieved to keep track of the order
             self.packets_recieved_counter += 1
 
-            outdata[:] = numpy.reshape(
-                    packet_to_send,
-                    (self.samples_per_chunk, self.number_of_channels))
+
+            print(type(packet_to_send))
+            print(packet_to_send.shape)
+            outdata = packet_to_send
+            # outdata[:] = numpy.reshape(
+            #         packet_to_send,
+            #         (self.samples_per_chunk, self.number_of_channels))
             if __debug__:
                 sys.stderr.write("."); sys.stderr.flush()
 

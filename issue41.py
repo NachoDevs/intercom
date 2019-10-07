@@ -101,6 +101,7 @@ class issue41(intercom.Intercom):
 if __name__ == "__main__":
 
     issue = issue41()
-    args = issue.parse_args()
+    parser = issue.add_args()
+    args = parser.parse_args()
     issue.init(args)
     issue.run()

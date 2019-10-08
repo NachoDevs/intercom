@@ -1,4 +1,4 @@
-# python .\issue41.py -p 4443 -i 4445
+# python .\issue41.py -p 4443 -i 4445 -a 192.168.1.13
 
 import sounddevice as sd
 import numpy
@@ -22,12 +22,8 @@ class issue41(intercom.Intercom):
 
     struct_format = "!H{}h"
 
-    # Overriding the run method
-    def run(self):
-        sending_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        receiving_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        listening_endpoint = ("0.0.0.0", self.listening_port)
-        receiving_sock.bind(listening_endpoint)
+    def init(self, args):
+        intercom.Intercom.init(self, args)
 
         # We set the struct amount of integers
         self.struct_format = self.struct_format.format(self.samples_per_chunk * self.number_of_channels)
@@ -35,6 +31,14 @@ class issue41(intercom.Intercom):
         # We set the buffer to zeros
         for i in range(self.buffer_size):
             self.packet_buffer[i] = numpy.zeros((self.samples_per_chunk, self.bytes_per_sample), self.dtype)
+
+    # Overriding the run method
+    def run(self):
+        sending_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        receiving_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        listening_endpoint = ("0.0.0.0", self.listening_port)
+        receiving_sock.bind(listening_endpoint)
+
 
         def receive_and_buffer():
             recieved_data, source_address = receiving_sock.recvfrom(
@@ -46,12 +50,7 @@ class issue41(intercom.Intercom):
             chunk=[]
             chunk_number, *chunk = struct.unpack(self.struct_format, recieved_data)
 
-            # We interpret the binary data from the buffer as integers
-            interpreted_chunk = numpy.frombuffer(chunk, numpy.int16)
-
-            print(chunk)
-
-            self.packet_buffer[chunk_number % self.buffer_size] = interpreted_chunk
+            self.packet_buffer[chunk_number % self.buffer_size] = chunk
             # self.received_packets.append(chunk_number)
 
         # def record_send_buffer_and_play(indata, outdata, frames, time, status):
@@ -89,16 +88,16 @@ class issue41(intercom.Intercom):
             
             # print(self.packet_buffer[self.packet_number_to_play % self.buffer_size])
 
-            packet_to_send = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
+            packet_to_play = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
             # Now we reset this position since it has been send to be played
-            # self.packet_buffer[self.packet_number_to_play % self.buffer_size] = numpy.zeros(packet_to_send.size)
+            # self.packet_buffer[self.packet_number_to_play % self.buffer_size] = numpy.zeros(packet_to_play.size)
             
             
             # We increment the ammount of packets recieved to keep track of the order
             # self.packets_recieved_counter += 1
 
             outdata[:] = numpy.reshape(
-                    packet_to_send,
+                    packet_to_play,
                     (self.samples_per_chunk, self.number_of_channels))
 
             if __debug__:

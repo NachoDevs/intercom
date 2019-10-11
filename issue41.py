@@ -135,7 +135,7 @@ class issue41(intercom.Intercom):
                 callback=record_send_buffer_and_play):
             print('-=- Press <CTRL> + <C> to quit -=-')
             buffering_counter = 0
-            while true: # TODO: change the condition, this has to be done only at the beginning
+            while True: # TODO: change the condition, this has to be done only at the beginning
                 receive_and_buffer()
 
         with sd.Stream(

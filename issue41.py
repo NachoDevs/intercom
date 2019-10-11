@@ -53,10 +53,7 @@ class issue41(intercom.Intercom):
             self.packet_buffer[chunk_number % self.buffer_size] = chunk
             # self.received_packets.append(chunk_number)
 
-        # def record_send_buffer_and_play(indata, outdata, frames, time, status):
-
-
-        def record_send_and_play(indata, outdata, frames, time, status):
+        def record_send_buffer_and_play(indata, outdata, frames, time, status):
             # We add the data to be send the index of this packet
             recieved_data = numpy.frombuffer(
                     indata,
@@ -100,19 +97,46 @@ class issue41(intercom.Intercom):
                     packet_to_play,
                     (self.samples_per_chunk, self.number_of_channels))
 
+        def record_send_and_play(indata, outdata, frames, time, status):
+            # We add the data to be send the index of this packet
+            recieved_data = numpy.frombuffer(
+                    indata,
+                    numpy.int16)
+
+            packet_to_send = struct.pack(self.struct_format, self.packets_sent_counter, *recieved_data)
+
+            # We increment the sent packet counter
+            self.packets_sent_counter+=1
+
+            # We send the data    
+            sending_sock.sendto(
+                packet_to_send,
+                (self.destination_IP_addr, self.destination_port))
+
+            # Increment the index where we are taking the packet to reproduce
+            self.packet_number_to_play += 1
+
+            # We get the packet to play
+            packet_to_play = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
+
+            # We sent the packet to be played reshaped to fit the number of channels
+            outdata[:] = numpy.reshape(
+                    packet_to_play,
+                    (self.samples_per_chunk, self.number_of_channels))
+
             if __debug__:
                 sys.stderr.write("."); sys.stderr.flush()
 
-        # with sd.Stream(
-        #         samplerate=self.samples_per_second,
-        #         blocksize=self.samples_per_chunk,
-        #         dtype=self.dtype,
-        #         channels=self.number_of_channels,
-        #         callback=record_send_buffer_and_play):
-        #     print('-=- Press <CTRL> + <C> to quit -=-')
-        #     buffering_counter = 0
-        #     while :
-        #         receive_and_buffer()
+        with sd.Stream(
+                samplerate=self.samples_per_second,
+                blocksize=self.samples_per_chunk,
+                dtype=self.dtype,
+                channels=self.number_of_channels,
+                callback=record_send_buffer_and_play):
+            print('-=- Press <CTRL> + <C> to quit -=-')
+            buffering_counter = 0
+            while true: # TODO: change the condition, this has to be done only at the beginning
+                receive_and_buffer()
 
         with sd.Stream(
                 samplerate=self.samples_per_second,

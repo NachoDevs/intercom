@@ -50,7 +50,6 @@ class issue41(intercom.Intercom):
             chunk_number, *chunk = struct.unpack(self.struct_format, recieved_data)
 
             self.packet_buffer[chunk_number % self.buffer_size] = chunk
-            # self.received_packets.append(chunk_number)
 
         def record_send_and_buffer(indata, outdata, frames, time, status):
             # We add the data to be send the index of this packet
@@ -80,8 +79,8 @@ class issue41(intercom.Intercom):
             if len(received_packets) > 0:
                 # If we have recieved packets that are separated by a distance bigger than half the size of the buffer
                 #   we need to start playing to prevent loosing new information from the next packages
-                if max(self.received_packets) - min(self.received_packets) > (self.buffer_size / 2):
-                    self.packet_number_to_play = min(self.received_packets)
+                if max(received_packets) - min(received_packets) > (self.buffer_size / 2):
+                    self.packet_number_to_play = min(received_packets)
 
             if __debug__:
                 sys.stderr.write("·"); sys.stderr.flush()

@@ -1,4 +1,4 @@
-# python .\issue41.py -p 4443 -i 4445 -a 192.168.1.13
+# python issue41.py -p 4443 -i 4445 -a 192.168.1.13
 
 import sounddevice as sd
 import numpy
@@ -17,7 +17,6 @@ class issue41(intercom.Intercom):
     packets_recieved_counter = 0                    # To keep track of the amount of packets recieved (for order purposes)
     buffer_size = 4                                 # Size of the buffer that will store the data
     packet_buffer = list(range(0, buffer_size))     # Here we will store the data recieved ordered by index
-    # received_packets = list(range(0, buffer_size))  # Structure to store the recieved packets
     packet_number_to_play = -1                      # To keep track of the current packet to play
 
     struct_format = "!H{}h"
@@ -53,7 +52,7 @@ class issue41(intercom.Intercom):
             self.packet_buffer[chunk_number % self.buffer_size] = chunk
             # self.received_packets.append(chunk_number)
 
-        def record_send_buffer_and_play(indata, outdata, frames, time, status):
+        def record_send_and_buffer(indata, outdata, frames, time, status):
             # We add the data to be send the index of this packet
             recieved_data = numpy.frombuffer(
                     indata,
@@ -69,33 +68,23 @@ class issue41(intercom.Intercom):
                 packet_to_send,
                 (self.destination_IP_addr, self.destination_port))
 
-            self.packet_number_to_play += 1
+            # Structure to store the index of recieved packets
+            received_packets=[]
+            no_data = numpy.zeros((self.samples_per_chunk, self.bytes_per_sample),self.dtype)
+            for index in range(self.buffer_size):
+                # Checking if the current packet has data
+                if numpy.array_equal(self.packet_buffer[index], no_data) == False:
+                    receive_and_buffer.append(index)
             
-            # packet_to_send = numpy.zeros((self.samples_per_chunk, self.bytes_per_sample), self.dtype)
-            # # If we haven't started playing
-            # if self.packet_number_to_play < 0:
-            #     # If we have recieved packets that are separated by a distance bigger than half the size of the buffer
-            #     #   we need to start playing to prevent loosing new information from the next packages
-            #     if max(self.received_packets) - min(self.received_packets) > self.buffer_size / 2:
-            #         self.packet_number_to_play = min(self.received_packets)
-            # else:
-            #    # We take the message corresponding with the next packet sent
+            # If we have found data
+            if len(received_packets) > 0:
+                # If we have recieved packets that are separated by a distance bigger than half the size of the buffer
+                #   we need to start playing to prevent loosing new information from the next packages
+                if max(self.received_packets) - min(self.received_packets) > (self.buffer_size / 2):
+                    self.packet_number_to_play = min(self.received_packets)
 
-            # print(self.packet_number_to_play % self.buffer_size)
-            
-            # print(self.packet_buffer[self.packet_number_to_play % self.buffer_size])
-
-            packet_to_play = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
-            # Now we reset this position since it has been send to be played
-            # self.packet_buffer[self.packet_number_to_play % self.buffer_size] = numpy.zeros(packet_to_play.size)
-            
-            
-            # We increment the ammount of packets recieved to keep track of the order
-            # self.packets_recieved_counter += 1
-
-            outdata[:] = numpy.reshape(
-                    packet_to_play,
-                    (self.samples_per_chunk, self.number_of_channels))
+            if __debug__:
+                sys.stderr.write("·"); sys.stderr.flush()
 
         def record_send_and_play(indata, outdata, frames, time, status):
             # We add the data to be send the index of this packet
@@ -113,11 +102,11 @@ class issue41(intercom.Intercom):
                 packet_to_send,
                 (self.destination_IP_addr, self.destination_port))
 
-            # Increment the index where we are taking the packet to reproduce
-            self.packet_number_to_play += 1
-
             # We get the packet to play
             packet_to_play = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
+
+            # Increment the index where we are taking the packet to reproduce
+            self.packet_number_to_play += 1
 
             # We sent the packet to be played reshaped to fit the number of channels
             outdata[:] = numpy.reshape(
@@ -132,10 +121,10 @@ class issue41(intercom.Intercom):
                 blocksize=self.samples_per_chunk,
                 dtype=self.dtype,
                 channels=self.number_of_channels,
-                callback=record_send_buffer_and_play):
+                callback=record_send_and_buffer):
             print('-=- Press <CTRL> + <C> to quit -=-')
             buffering_counter = 0
-            while True: # TODO: change the condition, this has to be done only at the beginning
+            while self.packet_number_to_play < 0:
                 receive_and_buffer()
 
         with sd.Stream(

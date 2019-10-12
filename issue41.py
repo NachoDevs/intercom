@@ -74,7 +74,7 @@ class issue41(intercom.Intercom):
             for index in range(self.buffer_size):
                 # Checking if the current packet has data
                 if numpy.array_equal(self.packet_buffer[index], no_data) == False:
-                    receive_and_buffer.append(index)
+                    received_packets.append(index)
             
             # If we have found data
             if len(received_packets) > 0:

@@ -119,7 +119,6 @@ class issue41(intercom.Intercom):
                 channels=self.number_of_channels,
                 callback=record_send_and_buffer):
             print('-=- Press <CTRL> + <C> to quit -=-')
-            buffering_counter = 0
             while self.packet_number_to_play < 0:
                 receive_and_buffer()
 

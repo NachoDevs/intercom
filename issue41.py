@@ -13,13 +13,13 @@ if __debug__:
 # Inheritance from the Intercom class in intercom.py
 class issue41(intercom.Intercom):
 
-    packets_sent_counter = 0                        # To keep track of the amount of packets sent (for order purposes)
-    packets_recieved_counter = 0                    # To keep track of the amount of packets recieved (for order purposes)
     buffer_size = 4                                 # Size of the buffer that will store the data
-    packet_buffer = list(range(0, buffer_size))     # Here we will store the data recieved ordered by index
     packet_number_to_play = -1                      # To keep track of the current packet to play
+    packets_sent_counter = 0                        # To keep track of the amount of packets sent (for order purposes)
+    
+    packet_buffer = list(range(0, buffer_size))     # Here we will store the data recieved ordered by index
 
-    struct_format = "!H{}h"
+    struct_format = "!H{}h"                         # Template for the structure of the packets to be sent
 
     def init(self, args):
         intercom.Intercom.init(self, args)
@@ -38,7 +38,6 @@ class issue41(intercom.Intercom):
         listening_endpoint = ("0.0.0.0", self.listening_port)
         receiving_sock.bind(listening_endpoint)
 
-
         def receive_and_buffer():
             recieved_data, source_address = receiving_sock.recvfrom(
                 self.max_packet_size)
@@ -49,14 +48,16 @@ class issue41(intercom.Intercom):
             chunk=[]
             chunk_number, *chunk = struct.unpack(self.struct_format, recieved_data)
 
+            # We store the data in its corresponding position
             self.packet_buffer[chunk_number % self.buffer_size] = chunk
 
-        def record_send_and_buffer(indata, outdata, frames, time, status):
-            # We add the data to be send the index of this packet
+        def send(indata):
+            # We interpret the data as an 1d numpy array
             recieved_data = numpy.frombuffer(
                     indata,
                     numpy.int16)
 
+            # We create the packet with the correct structure
             packet_to_send = struct.pack(self.struct_format, self.packets_sent_counter, *recieved_data)
 
             # We increment the sent packet counter
@@ -67,8 +68,14 @@ class issue41(intercom.Intercom):
                 packet_to_send,
                 (self.destination_IP_addr, self.destination_port))
 
-            # Structure to store the index of recieved packets
+        def record_send_and_buffer(indata, outdata, frames, time, status):
+            
+            # We send the data to the receiver
+            send(indata)
+
+            # Structure to store the indexes of recieved packets
             received_packets=[]
+            # Strcuture to show how silence or no data is represented for later comparison
             no_data = numpy.zeros((self.samples_per_chunk, self.bytes_per_sample),self.dtype)
             for index in range(self.buffer_size):
                 # Checking if the current packet has data
@@ -79,29 +86,19 @@ class issue41(intercom.Intercom):
             if len(received_packets) > 0:
                 # If we have recieved packets that are separated by a distance bigger than half the size of the buffer
                 #   we need to start playing to prevent loosing new information from the next packages
-                if max(received_packets) - min(received_packets) > (self.buffer_size / 2):
+                if (max(received_packets) - min(received_packets)) > (self.buffer_size / 2):
+                    # We will start playing from the oldest packet we have stored
                     self.packet_number_to_play = min(received_packets)
 
             if __debug__:
                 sys.stderr.write("·"); sys.stderr.flush()
 
         def record_send_and_play(indata, outdata, frames, time, status):
-            # We add the data to be send the index of this packet
-            recieved_data = numpy.frombuffer(
-                    indata,
-                    numpy.int16)
+            
+            # We send the data to the receiver
+            send(indata)
 
-            packet_to_send = struct.pack(self.struct_format, self.packets_sent_counter, *recieved_data)
-
-            # We increment the sent packet counter
-            self.packets_sent_counter+=1
-
-            # We send the data    
-            sending_sock.sendto(
-                packet_to_send,
-                (self.destination_IP_addr, self.destination_port))
-
-            # We get the packet to play
+            # We get the packet to be played
             packet_to_play = self.packet_buffer[self.packet_number_to_play % self.buffer_size]
 
             # Increment the index where we are taking the packet to reproduce

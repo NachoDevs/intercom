@@ -31,7 +31,7 @@ class issue42(Intercom_buffer):
 
             # Seleccionar bitplanes
 
-            Intercom_buffer.record_send_and_play(indata, outdata, frames, time, status)
+            Intercom_buffer.run(self).record_send_and_play(indata, outdata, frames, time, status)
 
         with sd.Stream(samplerate=self.frames_per_second, blocksize=self.frames_per_chunk, dtype=np.int16, channels=self.number_of_channels, callback=record_send_and_play):
             print("-=- Press CTRL + c to quit -=-")

@@ -28,62 +28,29 @@ class issue42(Intercom_buffer):
 
             # Dividir indata en una secuencia de 16 bitplanes
 
+            bits_per_number = 16
 
-            data = [[42, -33],
-                    [55,  27], 
-                    [15,  13]]
-
-            bitplanes = np.zeros( (16, 3) )
+            bitplanes = np.zeros( (bits_per_number * 2, self.frames_per_chunk) )
 
             i = 0
-            while i < 3:
-                j = 7
+            while i < self.frames_per_chunk:
+                j = bits_per_number - 1
                 aux = 0
-                while j >= 0:
-                    bitplanes[aux][i] = (data[i][0] >> j) & 1
-                    bitplanes[aux + 1][i] = (data[i][1] >> j) & 1
+                while j >= bits_per_number:
+                    bitplanes[aux][i] = (indata[i][0] >> j) & 1
+                    bitplanes[aux + 1][i] = (indata[i][1] >> j) & 1
 
                     j -= 1
                     aux += 2
                 i += 1
 
-            # for x in range(16):
-            #     for y in range(3):
-            #         print(bitplanes[x][y])
-            print(np.matrix(bitplanes))
+            # print(np.matrix(bitplanes))
 
-            print("---------")
-
-            # for frame_index in range(4):
-            #     print("Numero 1 a introducir: " + str(data[0][frame_index]))
-            #     print("Numero 2 a introducir: " + str(data[0][frame_index + 1]))
-            #     for bitplane_index in range(1):
-            #         bitplanes[frame_index][0] = (data[frame_index][bitplane_index] >> (frame_index)) & 1
-
-            #         bitplanes[frame_index][1] = (data[frame_index + 1][bitplane_index + 1] >> (frame_index + 4)) & 1
-
-            #         print(bitplane_index)
-            #         bitplane_index += 1
-            #         print(bitplane_index)
-            #         print("iteracion")
-
-                    # if(bitplane_index % 2 == 0):
-                    #     bitplanes[bitplane_index][frame_index] = (data[0][frame_index] >> bitplane_index) & 1
-                    #     print("Plano:" + str(bitplane_index) + ", en posicion: " + str(frame_index) + \
-                    #             ", introducimos:" + str((data[0][frame_index] >> bitplane_index) & 1))
-                    # else:
-                    #     bitplanes[bitplane_index][frame_index] = (data[0][frame_index + 1] >> bitplane_index) & 1
-                    #     print("Plano:" + str(bitplane_index) + ", en posicion: " + str(frame_index) + \
-                    #             ", introducimos:" + str((data[0][frame_index + 1] >> bitplane_index) & 1))
-
-
-                    # bitplanes[bitplane_index][frame_index] = indata[- ((bitplane_index % 2) - 1)][frame_index] >> bitplane_index & 1 
-
-                    # bitplane_index += 2
+            # print("---------")
 
             # Seleccionar bitplanes
 
-            # Intercom_buffer.run(self).record_send_and_play(indata, outdata, frames, time, status)
+            Intercom_buffer.run(self).record_send_and_play(indata, outdata, frames, time, status)
 
         with sd.Stream(samplerate=self.frames_per_second, blocksize=self.frames_per_chunk, dtype=np.int16, channels=self.number_of_channels, callback=record_send_and_play):
             print("-=- Press CTRL + c to quit -=-")

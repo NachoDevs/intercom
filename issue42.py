@@ -20,25 +20,19 @@ class issue42(Intercom_buffer):
 
         self.recorded_chunk_number = 0
         self.played_chunk_number = 0
-        self.recieved_column_number = 0
 
         # Overriding receive_and_buffer method from parent
         def receive_and_buffer():
             message, source_address = self.receiving_sock.recvfrom(Intercom_buffer.MAX_MESSAGE_SIZE)
             chunk_number, column_index, *bp = struct.unpack(self.packet_format, message)
 
-            to_reproduce = np.asarray(bp, np.uint8)
-            # binary_valued_array = np.unpackbits(np.asarray(bp, np.uint8))
+            to_reproduce = np.asarray(bp, np.int16)
 
-            # to_reproduce = binary_valued_array.astype(np.int16)
+            self._buffer[chunk_number % self.cells_in_buffer][:, column_index % 2] |= (to_reproduce << column_index//2)
 
-            print(self.recieved_column_number % 2)
+            print(column_index)
 
-            self._buffer[chunk_number % self.cells_in_buffer][:, self.recieved_column_number % 2] = \
-                self._buffer[chunk_number % self.cells_in_buffer][:, self.recieved_column_number % 2] | to_reproduce << column_index
-
-            self.recieved_column_number += 1
-            self.recieved_column_number %= (self.bits_per_number * self.number_of_channels)
+            # self.recieved_column_number %= (self.bits_per_number * self.number_of_channels)
 
             return chunk_number
 
@@ -46,24 +40,28 @@ class issue42(Intercom_buffer):
         def record_send_and_play(indata, outdata, frames, time, status):
 
             data = np.frombuffer(indata, np.int16).reshape(self.frames_per_chunk, self.number_of_channels)
+            
+            print("Antes de enviar:")
+            print(data)
 
             channel_index = 0
             for channel_index in range(self.number_of_channels):
                 column_index = self.bits_per_number - 1
                 while column_index >= 0:
                     bp = data[:, channel_index] >> column_index & 1
-                    # print(self.recorded_chunk_number)
-                    # print(column_index)
-                    # print(bp)
-                    # print(bp.astype(np.uint8))
-                    # print(np.packbits(bp.astype(np.uint8)))
-                    # print(len(bp))
+                    #packbits
                     to_send = struct.pack(self.packet_format, self.recorded_chunk_number, column_index, *(bp))
                     column_index -= 1
 
-            self.sending_sock.sendto(to_send, (self.destination_IP_addr, self.destination_port))
+                    self.sending_sock.sendto(to_send, (self.destination_IP_addr, self.destination_port))
+
+            self.recorded_chunk_number = (self.recorded_chunk_number + 1) % self.MAX_CHUNK_NUMBER
 
             chunk = self._buffer[self.played_chunk_number % self.cells_in_buffer]
+
+            print("Tras recibir:")
+            print(chunk)
+
             self._buffer[self.played_chunk_number % self.cells_in_buffer] = self.generate_zero_chunk()
             self.played_chunk_number = (self.played_chunk_number + 1) % self.cells_in_buffer
             outdata[:] = chunk

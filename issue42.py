@@ -9,48 +9,67 @@ if __debug__:
 class issue42(Intercom_buffer):
 
     def init(self, args):
+        self.bits_per_number = 16
+
         Intercom_buffer.init(self, args)
+
+        self.packet_format = f"!HB{self.frames_per_chunk}h" # Indice del chunk; indice de la columna;info
         
     # Overriding receive_and_buffer method from parent
     def run(self):
+
+        self.recorded_chunk_number = 0
+        self.played_chunk_number = 0
+        self.recieved_column_number = 0
+
         # Overriding receive_and_buffer method from parent
         def receive_and_buffer():
             message, source_address = self.receiving_sock.recvfrom(Intercom_buffer.MAX_MESSAGE_SIZE)
-            chunk_number, *chunk = struct.unpack(self.packet_format, message)
-            
-            # Reconstruimos el paquete
+            chunk_number, column_index, *bp = struct.unpack(self.packet_format, message)
 
-            self._buffer[chunk_number % self.cells_in_buffer] = np.asarray(chunk).reshape(self.frames_per_chunk, self.number_of_channels)
+            to_reproduce = np.asarray(bp, np.uint8)
+            # binary_valued_array = np.unpackbits(np.asarray(bp, np.uint8))
+
+            # to_reproduce = binary_valued_array.astype(np.int16)
+
+            print(self.recieved_column_number % 2)
+
+            self._buffer[chunk_number % self.cells_in_buffer][:, self.recieved_column_number % 2] = \
+                self._buffer[chunk_number % self.cells_in_buffer][:, self.recieved_column_number % 2] | to_reproduce << column_index
+
+            self.recieved_column_number += 1
+            self.recieved_column_number %= (self.bits_per_number * self.number_of_channels)
+
             return chunk_number
 
         # Overriding recond_send_and_play method from parent
         def record_send_and_play(indata, outdata, frames, time, status):
 
-            # Dividir indata en una secuencia de 16 bitplanes
+            data = np.frombuffer(indata, np.int16).reshape(self.frames_per_chunk, self.number_of_channels)
 
-            bits_per_number = 16
+            channel_index = 0
+            for channel_index in range(self.number_of_channels):
+                column_index = self.bits_per_number - 1
+                while column_index >= 0:
+                    bp = data[:, channel_index] >> column_index & 1
+                    # print(self.recorded_chunk_number)
+                    # print(column_index)
+                    # print(bp)
+                    # print(bp.astype(np.uint8))
+                    # print(np.packbits(bp.astype(np.uint8)))
+                    # print(len(bp))
+                    to_send = struct.pack(self.packet_format, self.recorded_chunk_number, column_index, *(bp))
+                    column_index -= 1
 
-            bitplanes = np.zeros( (bits_per_number * 2, self.frames_per_chunk) )
+            self.sending_sock.sendto(to_send, (self.destination_IP_addr, self.destination_port))
 
-            i = 0
-            while i < self.frames_per_chunk:
-                j = bits_per_number - 1
-                aux = 0
-                while j >= bits_per_number:
-                    bitplanes[aux][i] = (indata[i][0] >> j) & 1
-                    bitplanes[aux + 1][i] = (indata[i][1] >> j) & 1
+            chunk = self._buffer[self.played_chunk_number % self.cells_in_buffer]
+            self._buffer[self.played_chunk_number % self.cells_in_buffer] = self.generate_zero_chunk()
+            self.played_chunk_number = (self.played_chunk_number + 1) % self.cells_in_buffer
+            outdata[:] = chunk
+            if __debug__:
+                sys.stderr.write("."); sys.stderr.flush()
 
-                    j -= 1
-                    aux += 2
-                i += 1
-
-            # print(np.matrix(bitplanes))
-
-            # print("---------")
-
-            # Seleccionar bitplanes
-
-            Intercom_buffer.run(self).record_send_and_play(indata, outdata, frames, time, status)
 
         with sd.Stream(samplerate=self.frames_per_second, blocksize=self.frames_per_chunk, dtype=np.int16, channels=self.number_of_channels, callback=record_send_and_play):
             print("-=- Press CTRL + c to quit -=-")

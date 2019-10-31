@@ -26,11 +26,19 @@ class issue42(Intercom_buffer):
             message, source_address = self.receiving_sock.recvfrom(Intercom_buffer.MAX_MESSAGE_SIZE)
             chunk_number, column_index, *bp = struct.unpack(self.packet_format, message)
 
-            to_reproduce = np.asarray(bp, np.int16)
+            # to_reproduce = np.asarray(bp, np.int16)
+
+
+            bp_array = np.asarray(bp, dtype=np.uint8)
+
+            unpacked_bp = np.unpackbits(bp_array)
+            
+            to_reproduce = unpacked_bp.astype(np.int16)
+
 
             self._buffer[chunk_number % self.cells_in_buffer][:, column_index % 2] |= (to_reproduce << column_index//2)
 
-            print(column_index)
+            # print(column_index)
 
             # self.recieved_column_number %= (self.bits_per_number * self.number_of_channels)
 
@@ -44,16 +52,19 @@ class issue42(Intercom_buffer):
             print("Antes de enviar:")
             print(data)
 
-            channel_index = 0
-            for channel_index in range(self.number_of_channels):
-                column_index = self.bits_per_number - 1
-                while column_index >= 0:
+            column_index = self.bits_per_number - 1
+            while column_index >= 0:
+                channel_index = 0
+                for channel_index in range(self.number_of_channels):
                     bp = data[:, channel_index] >> column_index & 1
-                    #packbits
-                    to_send = struct.pack(self.packet_format, self.recorded_chunk_number, column_index, *(bp))
-                    column_index -= 1
+
+                    packed_bp = np.packbits(bp.astype(np.uint8))
+
+                    to_send = struct.pack(self.packet_format, self.recorded_chunk_number, column_index, *(packed_bp))
 
                     self.sending_sock.sendto(to_send, (self.destination_IP_addr, self.destination_port))
+
+                    column_index -= 1
 
             self.recorded_chunk_number = (self.recorded_chunk_number + 1) % self.MAX_CHUNK_NUMBER
 

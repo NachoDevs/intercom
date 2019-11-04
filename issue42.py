@@ -39,9 +39,6 @@ class issue42(Intercom_buffer):
 
             data = np.frombuffer(indata, np.int16).reshape(self.frames_per_chunk, self.number_of_channels)
             
-            # print("Antes de enviar:")
-            # print(data)
-
             bitplane_index = (self.bits_per_number * self.number_of_channels) - 1
             while bitplane_index >= 0:
                 bp = data[:, bitplane_index % self.number_of_channels] >> (bitplane_index // 2) & 1
@@ -57,9 +54,6 @@ class issue42(Intercom_buffer):
             self.recorded_chunk_number = (self.recorded_chunk_number + 1) % self.MAX_CHUNK_NUMBER
 
             chunk = self._buffer[self.played_chunk_number % self.cells_in_buffer]
-
-            # print("Tras recibir:")
-            # print(chunk)
 
             self._buffer[self.played_chunk_number % self.cells_in_buffer] = self.generate_zero_chunk()
             self.played_chunk_number = (self.played_chunk_number + 1) % self.cells_in_buffer

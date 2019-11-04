@@ -30,7 +30,7 @@ class issue42(Intercom_buffer):
 
             to_reproduce = unpacked_bp.astype(np.int16)
 
-            self._buffer[chunk_number % self.cells_in_buffer][:, bitplane_index % self.number_of_channels] |= (to_reproduce << bitplane_index)
+            self._buffer[chunk_number % self.cells_in_buffer][:, bitplane_index % self.number_of_channels] |= (to_reproduce << (bitplane_index // 2))
 
             return chunk_number
 
@@ -44,7 +44,7 @@ class issue42(Intercom_buffer):
 
             bitplane_index = (self.bits_per_number * self.number_of_channels) - 1
             while bitplane_index >= 0:
-                bp = data[:, bitplane_index % self.number_of_channels] >> bitplane_index & 1
+                bp = data[:, bitplane_index % self.number_of_channels] >> (bitplane_index // 2) & 1
 
                 packed_bp = np.packbits(bp.astype(np.uint8))
 

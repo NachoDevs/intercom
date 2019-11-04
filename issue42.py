@@ -13,7 +13,7 @@ class issue42(Intercom_buffer):
 
         Intercom_buffer.init(self, args)
 
-        self.packet_format = f"!HB{(self.samples_per_chunk//8)//self.number_of_channels}h" # Indice del chunk; indice de la columna;info
+        self.packet_format = f"!HB{self.samples_per_chunk // 8 // self.number_of_channels}h" # Chunk index; Column index; Data
         
     # Overriding receive_and_buffer method from parent
     def run(self):
@@ -26,13 +26,11 @@ class issue42(Intercom_buffer):
             message, source_address = self.receiving_sock.recvfrom(Intercom_buffer.MAX_MESSAGE_SIZE)
             chunk_number, bitplane_index, *bp = struct.unpack(self.packet_format, message)
 
-            bp_array = np.asarray(bp, np.uint8)
+            unpacked_bp = np.unpackbits(np.asarray(bp, np.uint8))
 
-            unpacked_bp = np.unpackbits(bp_array)
-            
             to_reproduce = unpacked_bp.astype(np.int16)
 
-            self._buffer[chunk_number % self.cells_in_buffer][:, bitplane_index % 2] |= (to_reproduce << bitplane_index)
+            self._buffer[chunk_number % self.cells_in_buffer][:, bitplane_index % self.number_of_channels] |= (to_reproduce << bitplane_index)
 
             return chunk_number
 
@@ -41,20 +39,18 @@ class issue42(Intercom_buffer):
 
             data = np.frombuffer(indata, np.int16).reshape(self.frames_per_chunk, self.number_of_channels)
             
-            print("Antes de enviar:")
-            print(data)
+            # print("Antes de enviar:")
+            # print(data)
 
-            bitplane_index = self.bits_per_number - 1
+            bitplane_index = (self.bits_per_number * self.number_of_channels) - 1
             while bitplane_index >= 0:
-                for channel_index in range(self.number_of_channels):
-                    bp = data[:, channel_index] >> bitplane_index & 1
+                bp = data[:, bitplane_index % self.number_of_channels] >> bitplane_index & 1
 
-                    # Parsing our int16 into uint8 for the packbits input
-                    packed_bp = np.packbits(bp.astype(np.uint8))
+                packed_bp = np.packbits(bp.astype(np.uint8))
 
-                    to_send = struct.pack(self.packet_format, self.recorded_chunk_number, bitplane_index, *(packed_bp))
+                to_send = struct.pack(self.packet_format, self.recorded_chunk_number, bitplane_index, *(packed_bp))
 
-                    self.sending_sock.sendto(to_send, (self.destination_IP_addr, self.destination_port))
+                self.sending_sock.sendto(to_send, (self.destination_IP_addr, self.destination_port))
 
                 bitplane_index -= 1
 
@@ -62,8 +58,8 @@ class issue42(Intercom_buffer):
 
             chunk = self._buffer[self.played_chunk_number % self.cells_in_buffer]
 
-            print("Tras recibir:")
-            print(chunk)
+            # print("Tras recibir:")
+            # print(chunk)
 
             self._buffer[self.played_chunk_number % self.cells_in_buffer] = self.generate_zero_chunk()
             self.played_chunk_number = (self.played_chunk_number + 1) % self.cells_in_buffer

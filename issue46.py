@@ -46,19 +46,19 @@ class Intercom_empty(Intercom_DFC):
         if self.NOBPTS > self.max_NOBPTS:
             self.NOBPTS = self.max_NOBPTS
         #Here we can know the number of 0 that were in the previous send
-        self.counter=self.received_bitplanes_per_chunk[self.played_chunk_number%self.cells_in_buffer]
+        self.counter = self.received_bitplanes_per_chunk[self.played_chunk_number % self.cells_in_buffer]
         #So, know we have to delete the number of bitplanes that are 0's, because they do not have information
         last_BPTS = self.max_NOBPTS - self.NOBPTS - 1 - self.counter
         self.send_bitplane(indata, self.max_NOBPTS-1)
         self.send_bitplane(indata, self.max_NOBPTS-2)
         for bitplane_number in range(self.max_NOBPTS-3, last_BPTS, -1):
-            #Here we check if there are bitplanes that are 0's       
-            if np.any(indata)==True:
-                #If there are not bitplanes, we can send the message
+            #Here we check if there are bitplanes that are 0's
+            if np.any(indata) == True:
+                #If there are not empty bitplanes, we can send the message
                self.send_bitplane(indata, bitplane_number)
             else:
                 #If there are 0's, we can not send the message and we add 1 to the actual counter  
-                self.received_bitplanes_per_chunk[self.played_chunk_number%self.cells_in_buffer]+=1            
+                self.received_bitplanes_per_chunk[self.played_chunk_number % self.cells_in_buffer] += 1
         self.recorded_chunk_number = (self.recorded_chunk_number + 1) % self.MAX_CHUNK_NUMBER
 
 if __name__ == "__main__":

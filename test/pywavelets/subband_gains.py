@@ -47,18 +47,33 @@ axs[number_of_samples//skip//2].set_ylabel('amplitude')
 
 print("Coefficient\t   Energy")
 
+<<<<<<< HEAD
+=======
+
+zeros = np.zeros(number_of_samples)
+coeffs = wt.wavedec(zeros, wavelet=wavelet, level=levels, mode=padding)
+arr, coeff_slices = wt.coeffs_to_array(coeffs)
+>>>>>>> 06d3a5372c58212492c4ccd1a0a6013cf969e688
 for i in range(0,number_of_samples,skip):
     
     # The basis functions are created by computing the inverse DWt of
     # an DWT spectrum where all coefficients are zero except one of
     # them. Depending on the position of such coefficient, a different
     # basis function is obtained.
+<<<<<<< HEAD
     zeros = np.zeros(number_of_samples)
     coeffs = wt.wavedec(zeros, wavelet=wavelet, level=levels, mode=padding)
     arr, coeff_slices = wt.coeffs_to_array(coeffs)
     arr[i] = number_of_samples # i is the coeff different of 0
     coeffs_from_arr = wt.array_to_coeffs(arr, coeff_slices, output_format="wavedec")
     samples = wt.waverec(coeffs_from_arr, wavelet=wavelet, mode=padding)
+=======
+    
+    arr[i] = number_of_samples # i is the coeff different from 0
+    coeffs_from_arr = wt.array_to_coeffs(arr, coeff_slices, output_format="wavedec")
+    samples = wt.waverec(coeffs_from_arr, wavelet=wavelet, mode=padding)
+    arr[i] = 0
+>>>>>>> 06d3a5372c58212492c4ccd1a0a6013cf969e688
     print("       %4d" % i, "\t", "%8.2f" % energy(samples))
     axs[i//skip].plot(sample, samples)
 

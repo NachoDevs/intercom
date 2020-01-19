@@ -1,20 +1,10 @@
 # Don't send empty bitplanes.
 #
-<<<<<<< HEAD
-# The sender adds to the number of received bitplanes the number of
-# skipped (zero) bitplanes of the chunk sent.
-
-# The receiver computes the first received
-# bitplane (apart from the bitplane with the signs) and report a
-# number of bitplanes received equal to the real number of received
-# bitplanes plus the number of skipped bitplanes.
-=======
 # The sender of the bitplanes adds, to the number of received
 # bitplanes, the number of skipped (zero) bitplanes of the chunk
 # sent. It is also considered that the signs bitplane cound be all
 # positives, something that could happen when we send a mono signal
 # using two channels or the number of samples/chunk is very small.
->>>>>>> 06d3a5372c58212492c4ccd1a0a6013cf969e688
 
 import struct
 import numpy as np
@@ -28,8 +18,6 @@ class Intercom_empty(Intercom_DFC):
 
     def init(self, args):
         Intercom_DFC.init(self, args)
-<<<<<<< HEAD
-=======
         self.skipped_bitplanes = [0]*self.cells_in_buffer
 
     def send_bitplane(self, indata, bitplane_number):
@@ -63,7 +51,6 @@ class Intercom_empty(Intercom_DFC):
     def feedback(self):
         volume = "*"*(30-self.skipped_bitplanes[(self.played_chunk_number+1) % self.cells_in_buffer])
         sys.stderr.write(volume + '\n'); sys.stderr.flush()
->>>>>>> 06d3a5372c58212492c4ccd1a0a6013cf969e688
 
 if __name__ == "__main__":
     intercom = Intercom_empty()

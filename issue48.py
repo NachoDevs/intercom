@@ -121,7 +121,7 @@ class issue48(Intercom_empty):
         self.NOBPTS = int(0.75*self.NOBPTS + 0.25*self.NORB)
         self.NOBPTS += self.skipped_bitplanes[(self.played_chunk_number+1) % self.cells_in_buffer]
         self.skipped_bitplanes[(self.played_chunk_number+1) % self.cells_in_buffer] = 0
-        #
+        
         self.NOBPTS += 1
         if (self.NOBPTS > self.max_NOBPTS):
             self.NOBPTS = self.max_NOBPTS
